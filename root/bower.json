@@ -1,0 +1,13 @@
+{
+  "name": "yjb-om",
+  "description": "YouJinBi OM System Pages",
+  "main": "Gruntfile.js",
+  "authors": [
+    "dukai"
+  ],
+  "license": "MIT",
+  "homepage": "",
+  "dependencies": {
+    "is-visible": "git+https://github.com/dukai/is-visible"
+  }
+}

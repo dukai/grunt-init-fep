@@ -1,125 +1,94 @@
-define(function(require, exports, module){
+/*
+ * grunt-init-fep
+ *
+ * Copyright (c) 2016 DK
+ * Licensed under the MIT license.
+ */
 
-	var tools = require('comp/tools');
+'use strict';
 
-	var cache = {};
-	var debug = true;
+// Basic template description.
+exports.description = 'Create a frontend project';
 
-	OPEN_TAG = '<?';
-	CLOSE_TAG = '?>';
+// Template-specific notes to be displayed before question prompts.
+exports.notes = '_Project name_ should start with your project org short name and split by _';
 
-	var Template = function(tmplContent){
+// Template-specific notes to be displayed after question prompts.
+exports.after = 'You should now install project dependencies with _npm ' +
+  'install_. After that, you may execute project tasks with _grunt_. For ' +
+  'more information about installing and configuring Grunt, please see ' +
+  'the Getting Started guide:' +
+  '\n\n' +
+  'http://gruntjs.com/getting-started';
 
-		this.vars = {};
-		this.fns = {};
-		this.helpers = {};
-		
-		var fnBody = "var ___tpContent = '',\
-		print = function(){\
-			___tpContent += [].join.call(arguments, '');\
-		};\
-		___tpContent += '" + this.compile(tmplContent) + "';\
-		return ___tpContent;";
+// Any existing file or directory matching this wildcard will cause a warning.
+exports.warnOn = '*';
 
+// The actual init template.
+exports.template = function(grunt, init, done) {
 
-		this.fn = new Function(fnBody);
-		Template.debug && console.log(fnBody);
-	};
+  init.process({type: 'fep'}, [
+    // Prompt for these values.
+    init.prompt('name'),
+    init.prompt('title', function(value, data, done) {
+      // Fix jQuery capitalization.
+      value = value.replace(/jquery/gi, 'jQuery');
+      done(null, value);
+    }),
+    init.prompt('description', 'Frontend project'),
+    init.prompt('version'),
+    init.prompt('repository'),
+    init.prompt('homepage'),
+    init.prompt('bugs'),
+    init.prompt('licenses', 'MIT'),
+    init.prompt('author_name'),
+    init.prompt('author_email'),
+    init.prompt('author_url'),
+    init.prompt('node_version', '4.4.5'),
+  ], function(err, props) {
+    // A few additional properties.
+    props.keywords = [];
+    props.devDependencies = {
+      "grunt": "^0.4.5",
+      "grunt-bust-requirejs-cache": "^0.3.2",
+      "grunt-cache-bust-alt": "^0.6.1",
+      "grunt-contrib-clean": "^0.7.0",
+      "grunt-contrib-copy": "^1.0.0",
+      "grunt-contrib-jshint": "^0.11.3",
+      "grunt-contrib-less": "^1.0.1",
+      "grunt-contrib-requirejs": "^0.4.4",
+      "grunt-contrib-watch": "^0.6.1",
+      "grunt-express-server": "^0.5.2",
+      "grunt-inline-text": "^0.1.2",
+      "grunt-replace": "^0.10.2",
+      "grunt-source-map": "git+https://github.com/dukai/grunt-source-map.git",
+      "bluebird": "^3.3.5",
+      "express": "^4.13.4",
+      "velocity": "^0.7.2",
+      "express-velocity-engine": "git+https://github.com/dukai/express-velocity-engine.git"
+    };
 
-	Template.prototype = {
-		render: function(data, isDom){
-			data = tools.mix(this.helpers, data);
-			this.checkVarsAndFns(data);
-			var html = this.fn.call(data);
-			if(isDom){
-				var div = document.createElement('div');
-				div.innerHTML = html;
-				var fragment = document.createDocumentFragment();
-				var nodeList = div.children;
-				while(nodeList.length > 0){
-					fragment.appendChild(nodeList[0]);
-				}
+    // Files to copy (and process).
+    var files = init.filesToCopy(props);
 
-				return fragment;
+    // Add properly-named license files.
+    init.addLicenseFiles(files, props.licenses);
 
-			}else{
-				return html;
-			}
-		},
+    // Actually copy (and process) files.
+    init.copyAndProcess(files, props, {noProcess: ['src/**', 'node_modules/**']});
 
-		checkVarsAndFns: function(data){
-			for(var key in this.vars){
-				if(data[key] === undefined){
-					Template.debug && console.warn("Variable \"" + key + "\" does not exists");
-					data[key] = '';
-				}
-			}
+    // Generate package.json file, used by npm and grunt.
+    init.writePackageJSON('package.json', props);
+    init.writePackageJSON('bower.json', {
+      name: props.name,
+      description: props.description,
+      homepage: props.homepage,
+      licenses: props.licenses,
+      dependencies: {}
+    });
 
-			for(var key in this.fns){
-				if(data[key] === undefined){
-					Template.debug && console.warn("Function \"" + key + "\" does not exists");
-					data[key] = this.emptyFn;
-				}
-			}
-		},
+    // All done!
+    done();
+  });
 
-		emptyFn: function(){
-			return '';
-		},
-
-		parseVars: function(source){
-			var result = null;
-			var regexp = /this\.([\w\$]+)\(*/g;
-			while ((result = regexp.exec(arguments[0])) != null)  {
-				// console.log(result);
-
-				if(result[0].substr(-1, 1) == "("){
-					//方法
-					this.fns[result[1]] = 1;
-				}else{
-					//变量
-					this.vars[result[1]] = 1;
-				}
-			}
-		},
-
-		compile: function(source){
-			var self = this;
-			//预处理模板内容
-			source = source.replace(/('|"|\\)/g, "\\$1")
-				.replace(/\r/g, "")
-				.replace(/\t/g, "\\t")
-				.replace(/\n/g, "\\n");
-
-			var closeTagEqualRegExp = new RegExp('\t=(.*?)' + CLOSE_TAG.replace(/\?/g, '\\?'), 'g');
-			var closeTagCommonRegExp = new RegExp('\t(.*?)' + CLOSE_TAG.replace(/\?/g, '\\?'), 'g');
-
-			//分析模板语法
-			source = source.split(OPEN_TAG).join('\t')
-				.replace(closeTagEqualRegExp, function(){
-					self.parseVars(arguments[0]);
-					var target =  arguments[1].replace(/\\t/g, ' ').replace(/\\n/g, '\n').replace(/\\r/, '\r').replace(/\\('|"|\\)/g, "$1");
-					return "' + (" + target + ");\r\n___tpContent += '";
-				})
-				.replace(closeTagCommonRegExp, function(){
-					self.parseVars(arguments[0]);
-					var target = arguments[1].replace(/\\t/g, ' ').replace(/\\n/g, '\n').replace(/\\r/, '\r').replace(/\\('|"|\\)/g, "$1");
-					return "';\r\n" + target + "\r\n___tpContent += '";
-				});
-
-			return source;
-		},
-
-		setHelpers: function(helpers){
-			this.helpers = tools.mix(this.helpers, helpers);
-		},
-		setHelper: function(key, value){
-			this.helpers[key] = value;
-		}
-	};
-
-
-	Template.debug = false;
-
-	module.exports = Template;
-});
+};

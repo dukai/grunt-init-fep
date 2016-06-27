@@ -1,32 +1,21 @@
-var path = require('path');
 
 module.exports = function(grunt) {
 
-	var config = {
-		webroot: 'src',
-		dist: 'dist',
-		testroot: 'test',
-		tstamp: '<%= grunt.template.today("ddmmyyyyhhMMss") %>'
-	};
+	var config = require('./grunt-config/global');
 
 	grunt.initConfig({
 		config: config,
 		less: {
-			development: {
+			dev: {
 				options: {
 					paths: ["less"]
 				},
 				files: [{
 					expand: true,
-					//Enable dynamic expansion.
 					cwd: '<%= config.webroot %>/less/',
-					//Src matches are relative to this path.
 					src: ['**/*.less'],
-					//Actual pattern(s) to match.
 					dest: 'src/css/',
-					//Destination path prefix.
 					ext: '.css',
-					//Dest filepaths will have this extension.
 					extDot: 'first' //Extensions in filenames begin after the first dot
 				},
 				],
@@ -49,6 +38,22 @@ module.exports = function(grunt) {
             }
 		},
 
+		clean: {
+            tests: ['dist'],
+            tmpl: ['src/js/app/**/*.tmpl.js', 'src/js/comp/**/*.tmpl.js']
+        },
+
+        inline_text: {
+            def: {
+                files: [{
+                    expand: true,
+                    cwd: '<%= config.webroot %>',
+                    src: ['js/app/**/*.tmpl', 'js/comp/**/*.tmpl'],
+                    dest: '<%= config.webroot %>'
+                }]
+            }
+        },
+
 		requirejs: {
 			compile: {
 				options: {
@@ -56,39 +61,55 @@ module.exports = function(grunt) {
 					baseUrl: "js",
 					dir: '<%= config.dist %>',
 					mainConfigFile: '<%= config.webroot %>/js/rs-config.js',
-					optimize: 'none',
+					optimize: 'uglify',
 					skipDirOptimize: true,
                     fileExclusionRegExp: /^\.|\.less$/,
-					modules: [
-
-                        {
-                            name: 'app/page-main',
-                            exclude: ['rs-config', 'jquery']
-                        },
-                        {
-                            name: 'app/page-sub',
-                            exclude: ['rs-config', 'jquery']
-                        }
-                    ]
+					modules: [].concat(require('./grunt-config/requirejs-modules'))
 				}
-			}
+			},
+
+            test: {
+                options: {
+                    appDir: '<%= config.webroot %>',
+                    baseUrl: "js",
+                    dir: '<%= config.dist %>',
+                    mainConfigFile: '<%= config.webroot %>/js/rs-config.js',
+                    optimize: 'none',
+                    skipDirOptimize: true,
+                    optimizeAllPluginResources: true,
+                    fileExclusionRegExp: /^\.|\.less$/,
+                    modules: []
+                }
+            }
 		},
 
 		watch: {
             options: {
-                // Reload assets live in the browser.
-                // Default livereload listening port is 35729.
-                livereload: 1337
+                livereload: 35729
             },
             less: {
                 files: ['<%= config.webroot %>/less/**/*.less'],
                 tasks: [
-                	'less:development'
+                	'less:dev'
                 ],
                 options: {
                     nospawn: true
                 }
-            }
+            },
+            html: {
+                files: ['<%= config.webroot %>/**/*'],
+                tasks: [],
+                options: {
+                    nospawn: true
+                }
+            },
+            express: {
+                files: ['server/**/*.js'],
+                tasks: ['express:dev'],
+                options: {
+                    spawn: false
+                }
+            },
         },
         cacheBust: {
         	options: {
@@ -97,7 +118,7 @@ module.exports = function(grunt) {
         		length: 16,
         		deleteOriginals: true,
         		jsonOutput: true,
-        		ignorePatterns: ['test', 'require.js', 'bootstrap', 'jquery'],
+        		ignorePatterns: ['test', 'require.js', 'bootstrap', 'jquery', 'moment'],
         		baseDir: '<%= config.dist %>',
                 filters: {
                     'script': [
@@ -124,13 +145,15 @@ module.exports = function(grunt) {
 		bust_requirejs_cache: {
 			default:{
 				options:{
-					appDir: '<%= config.dist%>',
-					ignorePatterns: ['jquery', 'rs-config']
+					dist: '<%= config.dist%>',
+                    appDir: '<%= config.dist%>',
+                    ignorePatterns: ['jquery', 'rs-config', 'moment'],
+                    shortHash: true
 				},
 				files: [{
 					expand: true,
 					cwd: '<%= config.dist %>',
-					src: 'page/**/*.html',
+					src: ['page/**/*.html', 'js/app/widget/*.js'],
 					dest: '<%= config.dist%>'
 				}]
 			}
@@ -140,51 +163,105 @@ module.exports = function(grunt) {
 			dist: {
 				options: {
 					patterns: [{
-						match: /([\("'])((\.+\/)+)(.+?[\("'])/ig,
+						match: /([\("'])((\.+\/)+)(.*?[\("'])/ig,
 						replacement: function() {
-							return arguments[1] + '/static/' + arguments[4];
+							return arguments[1] + config.staticHost + arguments[4];
 						}
 					}]
 				},
 				files: [{
 					expand: true,
 					cwd: '<%= config.dist %>',
-					src: ['page/**/*.html', 'css/**/*.css'],
+                    src: ['page/**/*.html', 'css/**/*.css', 'js/app/static-config.js'], 
 					dest: '<%= config.dist %>'
 				}]
 			}
-		}
+		},
 
-	});
+        source_map: {
+            bust:{
+                options:{
+                    dist: '<%= config.dist%>',
+                    java: '<%= config.javaFile%>',
+                    filename: 'source-map.json'
+                },
+                files: [{
+                    expand: true, 
+                    cwd: '<%= config.dist %>',
+                    src: ['grunt-cache-bust.json', 'resource-map.json'], 
+                    dest: '<%= config.dist %>'
+                }]
+            },
+            debug: {
+                options: {
+                    nomap: true,
+                    java: '<%= config.javaFile%>',
+                    filename: 'source-map.json'
+                }
+            }
+        },
 
-    grunt.event.on('watch', function(action, filepath){
-        if(filepath.indexOf('.inc.') > -1)
-            return true;
+        copy: {
+            main: {
+                options:{},
+                files: [{
+                    expand: true,
+                    cwd: '<%= config.dist %>',
+                    src: ['js/**/*', 'css/**/*', 'images/**/*'],
+                    dest: '<%= config.copyto%>',
+                    filter: 'isFile'
+                }]
+            }
+        },
 
-        var srcDir = filepath.split(path.sep);
-        var filename = srcDir[srcDir.length - 1];
-        delete srcDir[srcDir.length - 1];
-        srcDir = srcDir.join(path.sep);
-        var destDir = srcDir.replace(/less/g, 'css');
+        express: {
+            options:{
+                port: config.expressPort
+            },
+            dev: {
+                options: {
+                    script: 'server/index.js'
+                }
+            },
+            dist: {
+                options: {
+                    script: 'server/dist.js'
+                }
+            }
+        }
 
-		grunt.config('less.development.files', [{
-			src: filename,
-			dest: destDir,
-			expand: true,
-			cwd: srcDir,
-			ext: '.css',
-			extDot: 'last'
-		}]);
 	});
 
 	grunt.loadNpmTasks('grunt-contrib-less');
-	grunt.loadNpmTasks('grunt-bust-requirejs-cache');
-	grunt.loadNpmTasks('grunt-contrib-requirejs');
-	grunt.loadNpmTasks('grunt-contrib-watch');
-	grunt.loadNpmTasks('grunt-cache-bust');
-	grunt.loadNpmTasks('grunt-replace');
+    grunt.loadNpmTasks('grunt-contrib-requirejs');
+    grunt.loadNpmTasks('grunt-contrib-watch');
+    grunt.loadNpmTasks('grunt-cache-bust-alt');
+    grunt.loadNpmTasks('grunt-replace');
+    grunt.loadNpmTasks('grunt-bust-requirejs-cache');
+    grunt.loadNpmTasks('grunt-contrib-clean');
+    grunt.loadNpmTasks('grunt-contrib-copy');
+    grunt.loadNpmTasks('grunt-inline-text');
+    grunt.loadNpmTasks('grunt-express-server');
+    grunt.loadNpmTasks('grunt-source-map');
 
-	grunt.registerTask('dist', ['less', 'requirejs', 'cacheBust', 'bust_requirejs_cache']);
-	grunt.registerTask('release', ['requirejs', 'cacheBust', 'replace']);
+    grunt.registerTask('dev', ['express:dev', 'watch']);
+	grunt.registerTask('debug', [
+		'clean',
+        'less:dev',
+        'inline_text',
+        'requirejs:debug',
+        'clean:tmpl',
+        'replace',
+        'source_map:debug'
+		]);
+	grunt.registerTask('release', [
+		'clean',
+        'less:dist',
+        'requirejs:compile',
+        'cacheBust',
+        'bust_requirejs_cache',
+        'replace',
+        'source_map:bust'
+		]);
 
 };
