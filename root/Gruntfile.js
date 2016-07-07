@@ -1,4 +1,4 @@
-
+"use strict"
 module.exports = function(grunt) {
 
 	var config = require('./grunt-config/global');
@@ -26,14 +26,14 @@ module.exports = function(grunt) {
                     compress: true
                 },
                 files: [
-                    {
-                        expand: true,     //Enable dynamic expansion.
-                        cwd: '<%= config.webroot %>/less/',      //Src matches are relative to this path.
-                        src: ['**/*.less'], //Actual pattern(s) to match.
-                        dest: 'src/css/',   //Destination path prefix.
-                        ext: '.css',   //Dest filepaths will have this extension.
-                        extDot: 'first'   //Extensions in filenames begin after the first dot
-                    },
+                {
+                    expand: true,  
+                    cwd: '<%= config.webroot %>/less-sprite/', 
+                    src: ['*.less'], 
+                    dest: 'src/css/', 
+                    ext: '.css',  
+                    extDot: 'first'  
+                },
                 ],
             }
 		},
