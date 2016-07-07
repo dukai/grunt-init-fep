@@ -258,7 +258,7 @@ module.exports = function(grunt) {
                     extDot: 'first' 
                 }]
             }
-        }}
+        }
 
 	});
 
