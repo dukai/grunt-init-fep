@@ -40,7 +40,8 @@ module.exports = function(grunt) {
 
 		clean: {
             tests: ['dist'],
-            tmpl: ['src/js/app/**/*.tmpl.js', 'src/js/comp/**/*.tmpl.js']
+            tmpl: ['src/js/app/**/*.tmpl.js', 'src/js/comp/**/*.tmpl.js'],
+            sprite: ['src/less-sprite']
         },
 
         inline_text: {
@@ -163,19 +164,36 @@ module.exports = function(grunt) {
 			dist: {
 				options: {
 					patterns: [{
-						match: /([\("'])((\.+\/)+)(.*?[\("'])/ig,
-						replacement: function() {
-							return arguments[1] + config.staticHost + arguments[4];
-						}
-					}]
+                        match: /([\("'])((\.+\/)+)(.*?[\("'])/ig,
+                        replacement: function(){
+                            return arguments[1] + config.staticHost + arguments[4];
+                        }
+                    }]
 				},
 				files: [{
 					expand: true,
 					cwd: '<%= config.dist %>',
-                    src: ['page/**/*.html', 'css/**/*.css', 'js/app/static-config.js'], 
+                    src: ['page/**/*.html', 'css/**/*.css', 'js/rs-config.*js', 'js/app/static-config.js'], 
 					dest: '<%= config.dist %>'
 				}]
-			}
+			},
+
+            requireconfig: {
+                options: {
+                    patterns: [{
+                        match: /\'\/js\'/ig,
+                        replacement: function(){
+                            return "'../js'";
+                        }
+                    }]
+                },
+                files: [{
+                    expand: true, 
+                    cwd: '<%= config.dist %>',
+                    src: ['js/rs-config.*js'], 
+                    dest: '<%= config.dist %>'
+                }]
+            }
 		},
 
         source_map: {
@@ -228,7 +246,19 @@ module.exports = function(grunt) {
                     script: 'server/dist.js'
                 }
             }
-        }
+        },
+        sprite: {
+            defaultOptions: {
+                files: [{
+                    expand: true,     
+                    cwd: '<%= config.webroot %>/less/',  //less or css file to be processed dir 
+                    src: ['**/*.less'], 
+                    dest: '<%= config.webroot %>/less-sprite/', //dest dir 
+                    ext: '.less',  
+                    extDot: 'first' 
+                }]
+            }
+        }}
 
 	});
 
@@ -243,6 +273,7 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-inline-text');
     grunt.loadNpmTasks('grunt-express-server');
     grunt.loadNpmTasks('grunt-source-map');
+    grunt.loadNpmTasks('grunt-light-sprite');
 
     grunt.registerTask('dev', ['express:dev', 'watch']);
 	grunt.registerTask('debug', [
@@ -256,12 +287,15 @@ module.exports = function(grunt) {
 		]);
 	grunt.registerTask('release', [
 		'clean',
+        'sprite',
         'less:dist',
+        'clean:sprite',
         'requirejs:compile',
         'cacheBust',
         'bust_requirejs_cache',
-        'replace',
+        'replace:requireconfig',
+        'replace:dist',
         'source_map:bust'
-		]);
+        ]);
 
 };
