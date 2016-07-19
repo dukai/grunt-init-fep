@@ -13,7 +13,7 @@ module.exports = function(grunt) {
 				files: [{
 					expand: true,
 					cwd: '<%= config.webroot %>/less/',
-					src: ['**/*.less'],
+					src: ['*.less'],
 					dest: 'src/css/',
 					ext: '.css',
 					extDot: 'first' //Extensions in filenames begin after the first dot
