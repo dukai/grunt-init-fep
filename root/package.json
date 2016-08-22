@@ -26,6 +26,6 @@
     "express": "^4.13.4",
     "velocity": "^0.7.2",
     "express-velocity-engine": "git+https://github.com/dukai/express-velocity-engine.git",
-    "grunt-light-sprite": "^0.1.0",
+    "grunt-light-sprite": "^0.1.0"
   }
 }

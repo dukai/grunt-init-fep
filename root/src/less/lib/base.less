@@ -49,6 +49,18 @@
 .bl(@size,@value){
 	border-left:@size solid @value;
 }
+.bt(@args){
+	border-top:@args;
+}
+.bb(@args){
+	border-bottom:@args;
+}
+.br(@args){
+	border-right:@args;
+}
+.bl(@args){
+	border-left:@args;
+}
 .lhh(@value){
 	height:@value;
 	line-height:@value;
@@ -116,4 +128,25 @@
 
 .ellipsis{
 	overflow: hidden;text-overflow: ellipsis;white-space: nowrap;
+}
+
+.clearfix {
+  display: block;
+  zoom: 1;
+
+  &:after {
+    content: "";
+    display: block;
+    font-size: 0;
+    height: 0;
+    clear: both;
+    visibility: hidden;
+    font-size: 0;
+    line-height: 0;
+    width: 100%;
+  }
+}
+
+.align-center{
+    text-align: center;
 }
